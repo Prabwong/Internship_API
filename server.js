@@ -38,17 +38,40 @@ app.get('/all-student', (req, res) =>{
     })
 })
 
-app.post('/add-student', (req, res) =>{
+// app.post('/add-student', (req, res) =>{
+//     const data = req.body;
+//     con.query("INSERT INTO Name_ID SET ? ", data, (err, result) =>{
+//         if(err){
+//             res.send('Error');
+//             console.log(err);
+//         }else{
+//             res.send(result);
+//         }
+//     })
+// })
+
+app.post('/add-student', (req, res) => {
     const data = req.body;
-    con.query("INSERT INTO Name_ID SET ?", data, (err, result) =>{
-        if(err){
-            res.send('Error');
-            console.log(err);
-        }else{
-            res.send(result);
+    con.query("SELECT * FROM Name_ID WHERE Full_name = ? AND Nickname = ?", [data.Full_name, data.Nickname], (err, result) => {
+      if (err) {
+        res.send('Error');
+        console.log(err);
+      } else {
+        if (result.length === 0) {
+          con.query("INSERT INTO Name_ID SET ?", data, (err, insertResult) => {
+            if (err) {
+              res.send('Error');
+              console.log(err);
+            } else {
+              res.send(insertResult);
+            }
+          });
+        } else {
+          res.send('Student already exists');
         }
-    })
-})
+      }
+    });
+  });
 
 app.put('/update-student/:id', (req, res) =>{
     const data = [req.body.Full_name, req.body.Nickname, req.params.id];
