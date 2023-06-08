@@ -1,98 +1,77 @@
-const mysql = require('mysql2')
-const express = require('express')
-const app = express()
+const mysql = require('mysql2/promise');
+const express = require('express');
+const app = express();
 
-app.use(express.json())
+app.use(express.json());
 
-const con = mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: 'Prab49973',
-    database: 'test'
-});
-
-con.connect((err) => {
-    if(err){
-        console.log("Connection Error");
-        console.log(err);
-    }else{
-        console.log("Connection to MySQL Database");
-    }
+const pool = mysql.createPool({
+  host: 'localhost',
+  user: 'root',
+  password: 'Prab49973',
+  database: 'test'
 });
 
 app.listen(3000, () => {
-    console.log('Node API app is running on port 3000')
-})
+  console.log('Async-Node API app is running on port 3000');
+});
 
-app.get('/', (req, res) =>{
-    res.send('Hello Node API')
-})
+app.get('/', (req, res) => {
+  res.send('Hello Node API');
+});
 
-app.get('/all-student', (req, res) =>{
-    con.query("select * from Name_ID", (err, result) =>{
-        if(err){
-            res.send('Error');
-        }else{
-            res.send(result);
-        }
-    })
-})
+app.get('/all-student', async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+    const [rows, fields] = await connection.query('SELECT * FROM Name_ID');
+    connection.release();
+    res.send(rows);
+  } catch (err) {
+    res.send('Error');
+    console.log(err);
+  }
+});
 
-// app.post('/add-student', (req, res) =>{
-//     const data = req.body;
-//     con.query("INSERT INTO Name_ID SET ? ", data, (err, result) =>{
-//         if(err){
-//             res.send('Error');
-//             console.log(err);
-//         }else{
-//             res.send(result);
-//         }
-//     })
-// })
+app.post('/add-student', async (req, res) => {
+  const data = req.body;
+  try {
+    const connection = await pool.getConnection();
+    const [existingRows, _] = await connection.query('SELECT * FROM Name_ID WHERE Full_name = ? AND Nickname = ?', [data.Full_name, data.Nickname]);
+    if (existingRows.length === 0) {
+      const [result, _] = await connection.query('INSERT INTO Name_ID SET ?', data);
+      connection.release();
+      res.send(result);
+    } else {
+      connection.release();
+      res.send('Student already exists');
+    }
+  } catch (err) {
+    res.send('Error');
+    console.log(err);
+  }
+});
 
-app.post('/add-student', (req, res) => {
-    const data = req.body;
-    con.query("SELECT * FROM Name_ID WHERE Full_name = ? AND Nickname = ?", [data.Full_name, data.Nickname], (err, result) => {
-      if (err) {
-        res.send('Error');
-        console.log(err);
-      } else {
-        if (result.length === 0) {
-          con.query("INSERT INTO Name_ID SET ?", data, (err, insertResult) => {
-            if (err) {
-              res.send('Error');
-              console.log(err);
-            } else {
-              res.send(insertResult);
-            }
-          });
-        } else {
-          res.send('Student already exists');
-        }
-      }
-    });
-  });
+app.put('/update-student/:id', async (req, res) => {
+  const data = [req.body.Full_name, req.body.Nickname, req.params.id];
+  try {
+    const connection = await pool.getConnection();
+    const [result, _] = await connection.query('UPDATE Name_ID SET Full_name = ?, Nickname = ? WHERE ID = ?', data);
+    connection.release();
+    res.send(result);
+  } catch (err) {
+    res.send('Error');
+    console.log(err);
+  }
+});
 
-app.put('/update-student/:id', (req, res) =>{
-    const data = [req.body.Full_name, req.body.Nickname, req.params.id];
-    con.query("UPDATE Name_ID SET Full_name = ?, Nickname = ? where ID = ?", data, (err, result) =>{
-        if(err){
-            res.send('Error');
-            console.log(err);
-        }else{
-            res.send(result);
-        }
-    })
-})
-
-app.delete('/delete-student/:id', (req, res) =>{
-    let student_id = req.params.id;
-    con.query("DELETE from Name_ID where ID = " + student_id, (err, result) =>{
-        if(err){
-            res.send('Error');
-            console.log(err);
-        }else{
-            res.send(result);
-        }
-    })
-})
+app.delete('/delete-student/:id', async (req, res) => {
+  const student_id = req.params.id;
+  try {
+    const connection = await pool.getConnection();
+    const [result, _] = await connection.query('DELETE FROM Name_ID WHERE ID = ?', student_id);
+    connection.release();
+    res.send(result);
+  } catch (err) {
+    res.send('Error');
+    console.log(err);
+  }
+});
